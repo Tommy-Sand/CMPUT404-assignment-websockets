@@ -21,9 +21,68 @@
         limitations under the License.
     "/>
     <script src="json2.js"></script>
+    <script src="json2.js"></script>
+	<style>
+		.colour_menu {
+			background-color: #ffffff;
+			color: #f1f1f1;
+			height: 100%;
+			width: 10%;
+			position: fixed;
+			top: 0;
+			left: 0;
+		}
+		.colour_block{
+			border: thin solid black;
+			position: absolute;
+			width: 50px;
+			height: 50px;
+		}
+		.colour_block.red{
+			top: 0px;
+			left: 0px;
+			background-color: red;
+		}
+		.colour_block.blue{
+			top: 0px;
+			left: 50px;
+			background-color: blue;
+		}
+		.colour_block.green{
+			top: 50px;
+			left: 0px;
+			background-color: green;
+		}
+		.colour_block.black{
+			top: 50px;
+			left: 50px;
+			background-color: black;
+		}
+		.colour_block.white{
+			top: 100px;
+			left: 0px;
+			background-color: white;
+		}
+		.colour_block.yellow{
+			top: 100px;
+			left: 50px;
+			background-color: yellow;
+		}
+		#debug{
+            margin-left: 10%
+        }
+	</style>
   </head> 
   <body bgcolor="white" height="100%" width="100%"> 
-    <div id="debug"></div>
+    <div class="colour_menu">
+		<div class="colour_block red" onClick="changeColour('#FF0000')"> </div>
+		<div class="colour_block blue" onClick="changeColour('#0000FF')"> </div>
+		<div class="colour_block green" onClick="changeColour('#008000')"> </div>
+		<div class="colour_block black" onClick="changeColour('#000000')"> </div>
+		<div class="colour_block white" onClick="changeColour('#FFFFFF')"> </div>
+		<div class="colour_block yellow" onClick="changeColour('#FFFF00')"> </div>
+	</div>
+    <div id="debug" style="white-space: nowrap; text-overflow: ellipsis;"></div>
     <canvas id="c" width="100%" height="100%" style="-webkit-tap-highlight-color: transparent;"></canvas> 
 
     <script>
@@ -35,6 +94,11 @@ var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
 var wscounter = 0;
 var socket;
+var colour = '#FFFFFF';
+
+function changeColour(newColour){
+	colour = newColour;
+}
 
 function debug(str) {
     var debugDiv = document.getElementById('debug');
@@ -51,20 +115,23 @@ function drawCircle(context,entity) {
         lineWidth = 3;
         var x = entity["x"];
         var y = entity["y"];
-        //moveTo(x,y);
+        moveTo(x,y);
         fillStyle = entity["colour"];
         strokeStyle = fillStyle;
-        arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
-        stroke();                                
+        arc(x, y, (entity["radius"])?entity["radius"]:10, 0, 2.0 * Math.PI, false);  
+        stroke();            
+        fill();                    
     }
 }
 
 function prepEntity(entity) {
-    if (!entity["colour"]) {
-        entity["colour"] = "#FF0000";
-    }
-    if (!entity["radius"]) {
-        entity["radius"] = 50;
+    if(entity){
+        if (!entity["colour"]) {
+            entity["colour"] = "#FF0000";
+        }
+        if (!entity["radius"]) {
+            entity["radius"] = 10;
+        }
     }
     return entity;
 }
@@ -124,11 +191,14 @@ function getPosition(e) {
 function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
-    //XXX: Send a XHTML Request that updates the entity you just modified!
+    //XXX: Send a ws message that updates the entity you just modified!
+    content = {}
+    content[entity] = data;
+    socket.send(JSON.stringify(content));
 }
 var counter = 0;
 function addEntityWithoutName(data) {
-    var name = "X"+(counter++)%100;
+    var name = "X"+(counter++)%100000;
     addEntity(name,data);
 }
 
@@ -231,16 +301,15 @@ mouse = (function() {
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y,'colour': colour, 'radius': 15});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y,'colour': colour, 'radius': 15});
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    addEntityWithoutName({'x':x,'y':y,'colour': colour, 'radius':12});
 });
 
 
@@ -254,6 +323,7 @@ function wsSetup() {
     socket = new WebSocket(url);
     socket.onopen = function() {
         //XXX: TODO What are you going to do here?
+        //set world
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -261,17 +331,24 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            //XXX: TODO What are you going to do here? 
+            //update world
+            let parsed = JSON.parse(msg.data);
+            let entity = Object.keys(parsed);
+            let data = JSON.parse(msg.data)[entity];
+            world[entity] = data;
+            drawNextFrame();
+            return
         } catch (e) {
             alert("socket on message: " + e);
         }
     }; 
+    socket.onclose =function(msg) {
+        debug("WebSocket Close:" + msg.data);
+    }
 }
 
 wsSetup();
-
-
-
 
 // 30 frames per second
 setInterval( update, 1000/30.0);
