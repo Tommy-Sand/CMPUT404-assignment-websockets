@@ -13,6 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+#CITATION: https://github.com/uofa-cmput404/cmput404-slides/tree/master/examples/WebSocketsExamples
+#The help of this repo was used but code was not directly taken.
+
 import flask
 from flask import Flask, request
 from flask_sockets import Sockets
